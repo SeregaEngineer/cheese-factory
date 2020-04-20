@@ -1,0 +1,2 @@
+int getTimeInMin();
+int getTimeInSec();
