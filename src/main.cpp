@@ -4,7 +4,7 @@
 #include <TimeLib.h>
 #include <Wire.h>
 #include <DS1307RTC.h>
-
+#include "heater.h"
 
 unsigned long currentTime = 0; // текущее время работы
 long previousMillis = 0; // предыдущение сработка       
@@ -26,6 +26,12 @@ uint32_t start_time; // переменны для записи начанало 
 bool var = false; // Для  для включения сервы после нажатия на кнопку
 bool varHeatTo = false; //перемннная для функции нагреть до
 
+//-------------тест удалить
+  bool flaga = false;
+
+//----------------------
+Heater heat(heater);
+Heater heat1(motor);
 //включение тена 
 void controlHeater(bool ON){
     if (ON)digitalWrite(heater, HIGH);
@@ -77,10 +83,10 @@ void buzzer(){
 
 
 void setup() {
-  pinMode(heater, OUTPUT);
+ // pinMode(heater, OUTPUT);
   pinMode(btn_on, INPUT_PULLUP);
   pinMode(buz, OUTPUT);
-  pinMode(motor, OUTPUT);
+//  pinMode(motor, OUTPUT);
   Serial.begin(9600);
   while (!Serial) ; // wait until Arduino Serial Monitor opens
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
@@ -88,7 +94,7 @@ void setup() {
      Serial.println("Unable to sync with the RTC");
   else
      Serial.println("RTC has set the system time");      
-  
+  flaga = true;
 }
 
 
@@ -99,8 +105,11 @@ currentTime = millis();
  {
    temp = readTemp();
    Serial.println(temp);
+   heat.tempMaint(&temp,28,1);
+   heat1.tempMaint(&temp,26,0);
    previousMillis = currentTime;
  }   
+ 
  
 
 switch (step)
