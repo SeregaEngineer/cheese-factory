@@ -28,8 +28,6 @@ void Heater::tempMaint (float *temp, uint8_t setpoint, uint8_t hyster){
     
   }
 
-
-
 //Нагреть до
 void Heater::heatTo(float* temp, uint8_t setpoint, bool *flag){
     if(*temp < setpoint && *flag){

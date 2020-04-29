@@ -19,6 +19,7 @@ const uint8_t heater = 13; // Пин подключение нагревател
 const uint8_t btn_on = 2;  //Пин подключения кнопки
 const uint8_t buz = 3;     //Пин для подключения пищалки
 const uint8_t motor = 4;   //Пин для подключения пищалки
+const uint8_t valve = 7;  //Пин для подклчючения клапана
 uint8_t setTemp1 = 27;     // Уставка по температуре 1
 uint8_t setTemp2 = 37;
 bool buz_status = true; //для единичного вклчюения буззера на стадии нагрева
@@ -97,8 +98,7 @@ void loop()
     previousMillis = currentTime;
   }
 
-  
-
+  // рецепт приготовления.
   switch (step)
   {
 
@@ -126,7 +126,7 @@ void loop()
 
     //шаг два вонести заквски и погреть t мин
   case 2:
-    // Хз как сделать, можно сразу после нагрведо поддерживать Т или нужно после внесение закваски??
+    //после внесение за Хз как сделать, можно сразу после нагрведо поддерживать Т или нужно кваски??
     heat.tempMaint(&temp, setTemp1, 1); // нагреваем до Т и поддерживаем температуру
 
     btContinue();
@@ -208,16 +208,33 @@ void loop()
   // нагрев до T  и t держим температуру
   case 6:
     heat.tempMaint(&temp, setTemp1, 1); //греем до 50 и ждем 1.5 часа
-    if (getTimeInMin() - start_time >= 2)
+    controlMotor(true);
+    if (currentTime - previousMillis11 > 1000)
     {
-      exitInStep();
-      step = 0;
-      Serial.println(F("Step 6 done"));
+      if (getTimeInMin() - start_time >= 2)
+      {
+        exitInStep();
+        step = 0;
+        Serial.println(F("Step 6 done"));
+      }
+      previousMillis11 = currentTime;
     }
     break;
+
+  case 7: // Пастеризация
+    btContinue();
+    if (var)
+    {
+      heat.heatTo(&temp, setTemp1, &varHeatTo);
+      if (!varHeatTo)
+      {
+        digitalWrite(valve, HIGH);
+        if (temp <= 34)
+        {
+          digitalWrite(valve, LOW);
+          step = 0;
+        }
+      }
+    }
   }
-
-
-
-
 }
