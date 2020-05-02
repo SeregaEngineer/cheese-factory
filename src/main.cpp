@@ -5,6 +5,10 @@
 #include <Wire.h>
 #include <DS1307RTC.h>
 #include "heater.h"
+#include "GyverEncoder.h"
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
 
 unsigned long currentTime = 0; // текущее время работы
 long previousMillis = 0;       // предыдущение сработка
@@ -14,18 +18,20 @@ long previousMillis_read = 0;
 long time_click = 0;
 float temp;
 uint8_t gister = 0.3; //гистеререзис
-volatile uint8_t step = 0;
+volatile int8_t step = -1;
 const uint8_t heater = 13; // Пин подключение нагревателя
 const uint8_t btn_on = 2;  //Пин подключения кнопки
 const uint8_t buz = 3;     //Пин для подключения пищалки
 const uint8_t motor = 4;   //Пин для подключения пищалки
-const uint8_t valve = 7;  //Пин для подклчючения клапана
+const uint8_t valve = 7;   //Пин для подклчючения клапана
 uint8_t setTemp1 = 27;     // Уставка по температуре 1
 uint8_t setTemp2 = 37;
 bool buz_status = true; //для единичного вклчюения буззера на стадии нагрева
 uint32_t start_time;    // переменны для записи начанало поддержания температуры
 bool var = false;       // Для  для включения сервы после нажатия на кнопку
 bool varHeatTo = false; //перемннная для функции нагреть до
+
+Encoder enc(10, 9, 8);
 
 Heater heat(heater);
 
@@ -56,6 +62,21 @@ bool btContinue()
   {
     start_time = getTimeInMin();
     var = true;
+
+    if (step == 7)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print(F("Past"));
+    }
+    else
+    {
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print(F("step"));
+      lcd.setCursor(5, 1);
+      lcd.print(step);
+    }
     return true;
   }
   return false;
@@ -67,12 +88,18 @@ void exitInStep()
   var = false;
   varHeatTo = true;
   step++;
-  heat.oNoff(false); // на выходе из каждго шага выключаем Тен, очень сомнительно
-                     // по функционалу но вроде безопаснее
+  heat.oNoff(false);   // на выходе из каждго шага выключаем Тен, очень сомнительно
+  lcd.setCursor(7, 1); // по функционалу но вроде безопаснее
+  lcd.print(F("done"));
 }
 
 void setup()
 {
+  lcd.init(); // initialize the lcd
+  // Print a message to the LCD.
+  lcd.backlight();
+
+  enc.setType(TYPE2);
   varHeatTo = true;
   pinMode(btn_on, INPUT_PULLUP);
   pinMode(buz, OUTPUT);
@@ -90,17 +117,49 @@ void setup()
 void loop()
 {
   currentTime = millis();
+  enc.tick();
+
+  if (enc.isRightH()) // Добавить условия со step что если тема мутится не надо менять рецпты на ходу
+  {
+
+    step = 7;
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print(F("Pasteriza"));
+  }
+
+  if (enc.isLeftH())
+  {
+
+    step = 0;
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print(F("chees = "));
+  }
 
   if (currentTime - previousMillis > 750) // текущие - предыдущие
   {
     temp = readTemp();
     Serial.println(temp);
+    lcd.setCursor(0, 0);
+    lcd.print(F("T="));
+    lcd.setCursor(3, 0);
+    lcd.print(temp, 1);
+
     previousMillis = currentTime;
   }
 
   // рецепт приготовления.
   switch (step)
   {
+
+  case -1:
+    heat.oNoff(false);
+    controlMotor(false);
+    digitalWrite(valve, LOW);
+    lcd.setCursor(0, 1);
+    lcd.print(F("STOP"));
+    break;
 
   case 0:
     heat.oNoff(false);
@@ -214,7 +273,7 @@ void loop()
       if (getTimeInMin() - start_time >= 2)
       {
         exitInStep();
-        step = 0;
+        step = -1;
         Serial.println(F("Step 6 done"));
       }
       previousMillis11 = currentTime;
@@ -225,14 +284,20 @@ void loop()
     btContinue();
     if (var)
     {
+
       heat.heatTo(&temp, setTemp1, &varHeatTo);
       if (!varHeatTo)
       {
         digitalWrite(valve, HIGH);
-        if (temp <= 34)
+        if (temp <= 26)
         {
           digitalWrite(valve, LOW);
-          step = 0;
+          step = -1;
+          var = false;
+          varHeatTo = true;
+          lcd.setCursor(6, 1); // по функционалу но вроде безопаснее
+          lcd.print(F("done"));
+          buzzer();
         }
       }
     }
