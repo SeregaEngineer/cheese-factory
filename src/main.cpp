@@ -17,6 +17,9 @@ const uint8_t motor = 4;   //Пин для подключения пищалки
 const uint8_t valve = 7;   //Пин для подклчючения клапана
 uint8_t setTemp1 = 27;     // Уставка по температуре 1
 uint8_t setTemp2 = 37;
+uint32_t timeMin, timeSec;
+uint16_t setTimeMin;
+
 bool buz_status = true; //для единичного вклчюения буззера на стадии нагрева
 uint32_t start_time;    // переменны для записи начанало поддержания температуры
 bool var = false;       // Для  для включения сервы после нажатия на кнопку
@@ -520,5 +523,16 @@ void menuSwipe(uint8_t *menu)
     lcd.setCursor(0, 1);
     lcd.print(F("pasteriza"));
     break;
+  }
+}
+void timerMin(uint16_t TimeMinDisplay)
+{
+  if (start_time - now() >= 60)
+  {    
+      TimeMinDisplay --;
+      lcd.setCursor(14,0);
+      lcd.print(TimeMinDisplay);
+
+
   }
 }

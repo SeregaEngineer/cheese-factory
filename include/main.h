@@ -19,4 +19,6 @@ void exitInStep(); // Выход из шага, сбрасываем флаги,
 
 void modeCheese(); // Режим готовки сыра
 void modeStop(); //Стоп
-void modePaster(); // Пастеризация
+void modePaster(); // Пастеризация'
+
+void timerMin(); // Таймер
