@@ -3,11 +3,12 @@
 
 
 int getTimeInMin(){
-    return hour() * 60 + minute();
+    //return hour() * 60 + minute();
+    return now();
 }
 
 
 int getTimeInSec(){
-
-    return minute() * 60 + second();
+    //return minute() * 60 + second();
+    return now();
 }
