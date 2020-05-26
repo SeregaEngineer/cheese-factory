@@ -15,23 +15,27 @@ const uint8_t btn_on = 2;  //Пин подключения кнопки
 const uint8_t buz = 3;     //Пин для подключения пищалки
 const uint8_t motor = 4;   //Пин для подключения пищалки
 const uint8_t valve = 7;   //Пин для подклчючения клапана
-uint8_t Temp_paster = 27;     // Уставка пастеризации
+uint8_t Temp_paster = 27;  // Уставка пастеризации
 uint8_t setTemp2 = 37;
 uint32_t timeMin, timeSec;
 //uint16_t setTimeMin;
-uint16_t time_display;
+int8_t time_display;
 bool run = false;       //Взводим когда идет работа что бы заблокирвоать меню
 bool buz_status = true; //для единичного вклчюения буззера на стадии нагрева
-uint32_t start_time;    // переменны для записи начанало поддержания температуры
+int32_t start_time;     // переменны для записи начанало поддержания температуры
 bool var = false;       // Для  для включения сервы после нажатия на кнопку
 bool varHeatTo = false; //перемннная для функции нагреть до
 int8_t menu = 0;        // переменная для работы меню
 Encoder enc(10, 9, 8);
 LiquidCrystal_I2C lcd(0x3F, 16, 2);
 Heater heat(heater);
-uint8_t cheese[9];        // массив с настройками рецепт
+int8_t cheese[9];         // массив с настройками рецепт
 int8_t brand_cheese = 10; //Переменная для выбора
 uint8_t i = 0;
+
+int8_t nope = -127;
+bool cursor = false;
+
 void setup()
 {
 
@@ -46,7 +50,7 @@ void setup()
   pinMode(motor, OUTPUT);
   Serial.begin(9600);
   lcd.clear();
-  lcd.setCursor(0, 1);
+  lcd.setCursor(6, 1);
   lcd.print(F("stop"));
   while (!Serial)
     ;                       // wait until Arduino Serial Monitor opens
@@ -55,6 +59,7 @@ void setup()
     Serial.println("Unable to sync with the RTC");
   else
     Serial.println("RTC has set the system time");
+  eeprom_read_block((void *)&cheese, 10, sizeof(cheese));
 }
 
 void loop()
@@ -82,38 +87,12 @@ void loop()
     }
     menuSwipe(&menu);
   }
-  //выбор типа сыра
-  if (menu == 1 && !run && enc.isRight())
-  {
-    brand_cheese += 10;
-    if (brand_cheese > 20)
-    {
-      brand_cheese = 10;
-    }
-    lcd.setCursor(8, 1);
-    lcd.print(brand_cheese / 10);
-    Serial.print(brand_cheese);
-  }
 
-  if (menu == 1 && !run && enc.isLeft())
-  {
-    brand_cheese -= 10;
-    if (brand_cheese < 10)
-    {
-      brand_cheese = 20;
-    }
-    lcd.setCursor(8, 1);
-    lcd.print(brand_cheese / 10);
-    Serial.print(brand_cheese);
-  }
-
-
-   if (menu == 2 && !run && enc.isRight())
+  /*if (menu == 2 && !run && enc.isRight())
   {
     Temp_paster++;
     lcd.setCursor(11, 1);
     lcd.print(Temp_paster);
-    
   }
 
   if (menu == 2 && !run && enc.isLeft())
@@ -121,22 +100,20 @@ void loop()
     Temp_paster--;
     lcd.setCursor(11, 1);
     lcd.print(Temp_paster);
-  
-  }
-
-
-
-
+  }*/
 
   if (currentTime - previousMillis > 750) // текущие - предыдущие
   {
     temp = readTemp();
-    Serial.println(temp);
+    // Serial.println(temp);
     lcd.setCursor(0, 0);
-    lcd.print(F("T="));
+    lcd.print(F("Tm="));
     lcd.setCursor(3, 0);
     lcd.print(temp, 1);
-
+    lcd.setCursor(8, 0);
+    lcd.print(F("Tw="));
+    lcd.setCursor(11, 0);
+    lcd.print(temp + 10, 1);
     previousMillis = currentTime;
   }
 
@@ -176,7 +153,7 @@ void buzzer()
 }
 
 // кнопка продолжить
-bool btContinue(uint16_t time_process)
+bool btContinue(int8_t time_process)
 {
   if (!digitalRead(btn_on))
   {
@@ -185,18 +162,23 @@ bool btContinue(uint16_t time_process)
     start_time = now();
     var = true;
     time_display = time_process;
-    lcd.clear();
-    lcd.setCursor(0, 1);
-    lcd.print(F("step"));
-    lcd.setCursor(5, 1);
-    lcd.print(step);
 
+    //  lcd.clear();  ДОБавить с отрицательными числами и не выводить
+    if (time_process != -100)
+    {
+      lcd.setCursor(12, 1);
+      lcd.print(F("t="));
+      lcd.setCursor(14, 1);
+      lcd.print(time_display);
+      //lcd.setCursor(14, 1);
+      //lcd.print(step);
+    }
     return true;
   }
   return false;
 }
 //выход из шага
-void exitInStep()
+void exitInStep(int8_t *temperatura, int8_t *time)
 {
   buzzer();
   var = false;
@@ -204,12 +186,44 @@ void exitInStep()
   step++;
   heat.oNoff(false); // на выходе из каждго шага выключаем Тен, очень сомнительно
                      // lcd.setCursor(7, 1); // по функционалу но вроде безопаснее
-  //lcd.print(F("done"));
+  //lcd.setCursor(0,1);
+  lcd.clear();
+  // lcd.print(F("                "));
+  if (*temperatura != -127)
+  {
+    lcd.setCursor(0, 1);
+    lcd.print(F("Ts="));
+    lcd.setCursor(3, 1);
+    lcd.print(*temperatura);
+  }
+  else
+  {
+    lcd.setCursor(0, 1);
+    lcd.print(F("Ts="));
+    lcd.setCursor(3, 1);
+    lcd.print(F("no"));
+  }
+
+  if (*time != -127)
+  {
+    lcd.setCursor(6, 1);
+    lcd.print(F("ts="));
+    lcd.setCursor(9, 1);
+    lcd.print(*time);
+  }
+  else
+  {
+    lcd.setCursor(6, 1);
+    lcd.print(F("ts="));
+    lcd.setCursor(9, 1);
+    lcd.print(F("no"));
+  }
 }
 
 // Режим приготовления сыра
 void modeCheese()
 {
+
   switch (step)
   {
   case 1: //Нагреваем до T пищим и погнали дальше
@@ -217,11 +231,13 @@ void modeCheese()
     {
       heat.oNoff(false);
       controlMotor(false);
+
+      change_setpoint(&cheese[0], &nope);
     }
 
-    if (btContinue(NULL))
+    if (btContinue(-100))
     {
-      eeprom_read_block((void *)&cheese, brand_cheese, sizeof(cheese));
+
       Serial.print(var);
       varHeatTo = true;
       //step = 1; // ждем нажатия кнопки для запуска
@@ -232,7 +248,7 @@ void modeCheese()
       if (temp > cheese[0])
       {
         Serial.println(F("Step 1 done"));
-        exitInStep();
+        exitInStep(&cheese[2], &cheese[1]);
       }
     }
     // При достижение 37 нужно однократно пропикать буззером
@@ -244,8 +260,9 @@ void modeCheese()
     // heat.tempMaint(&temp, setTemp1, 1); // нагреваем до Т и поддерживаем температуру
     if (!var)
     {
-      lcd.setCursor(0, 1);
-      lcd.print(F("add leaven"));
+      //lcd.setCursor(0, 1);
+      //lcd.print(F("add leaven"));
+      change_setpoint(&cheese[2], &cheese[1]);
     }
     btContinue(cheese[1]);
     if (var)
@@ -259,7 +276,7 @@ void modeCheese()
         if (now() - start_time >= cheese[1] * 60)
         { // время для отладки везде порядка минуты
           heat.oNoff(false);
-          exitInStep();
+          exitInStep(&nope, &cheese[3]);
           Serial.println(F("Step 2 done"));
         }
         previousMillis11 = currentTime;
@@ -271,7 +288,8 @@ void modeCheese()
     if (!var)
     {
       lcd.setCursor(0, 1);
-      lcd.print(F("add ferment"));
+      change_setpoint(&nope, &cheese[3]);
+      //lcd.print(F("add ferment"));
     }
     btContinue(cheese[3]);
     if (var)
@@ -281,7 +299,7 @@ void modeCheese()
         timerMin();
         if (now() - start_time >= cheese[3] * 60)
         {
-          exitInStep();
+          exitInStep(&cheese[2], &cheese[1]);
           Serial.println(F("Step 3 done"));
         }
         previousMillis11 = currentTime;
@@ -306,7 +324,7 @@ void modeCheese()
         {
           //timerMin();
           controlMotor(false);
-          exitInStep();
+          exitInStep(&cheese[2], &cheese[1]);
           Serial.println(F("Step 4 done"));
         }
         previousMillis11 = currentTime;
@@ -336,7 +354,7 @@ void modeCheese()
         {
           controlMotor(false);
           buzzer(); //через 15 минут вырбуаем движок и пищим бузером
-          exitInStep();
+          exitInStep(&cheese[2], &cheese[1]);
           Serial.println(F("Step 5 done"));
         }
         previousMillis11 = currentTime;
@@ -362,7 +380,7 @@ void modeCheese()
         timerMin();
         if (now() - start_time >= cheese[8] * 60)
         {
-          exitInStep();
+          exitInStep(&cheese[2], &cheese[1]);
           step = 1;
           menu = 0;
           menuSwipe(&menu);
@@ -388,25 +406,35 @@ void modeStop()
 void modePaster()
 {
 
-  btContinue(NULL); //////!!!!!!!!!!!!!!
+  btContinue(25); //////!!!!!!!!!!!!!!
   if (var)
   {
 
     heat.heatTo(&temp, Temp_paster, &varHeatTo);
+
     if (!varHeatTo)
     {
-      digitalWrite(valve, HIGH);
-      if (temp <= 26)
+      if (currentTime - previousMillis11 > 1000) // текущие - предыдущие
       {
-        digitalWrite(valve, LOW);
-        //step = -1;
-        var = false;
-        varHeatTo = true;
-        lcd.clear();
-        lcd.setCursor(0, 1); // по функционалу но вроде безопаснее
-        lcd.print(F("stop"));
-        menu = 0;
-        buzzer();
+        timerMin();
+        //каждую сек обеновляем диспей и пишем скольок времени осталось
+        if (now() - start_time >= 25)
+        { // время для отладки везде порядка минуты
+          digitalWrite(valve, HIGH);
+          if (temp <= 26)
+          {
+            digitalWrite(valve, LOW);
+            //step = -1;
+            var = false;
+            varHeatTo = true;
+            lcd.clear();
+            lcd.setCursor(0, 1); // по функционалу но вроде безопаснее
+            lcd.print(F("stop"));
+            menu = 0;
+            buzzer();
+          }
+          previousMillis11 = currentTime;
+        }
       }
     }
   }
@@ -420,7 +448,7 @@ void menuSwipe(int8_t *menu)
   case 0:
     //step = -1;
     lcd.clear();
-    lcd.setCursor(0, 1);
+    lcd.setCursor(6, 1);
     lcd.print(F("stop"));
     break;
 
@@ -428,16 +456,22 @@ void menuSwipe(int8_t *menu)
     step = 1;
     lcd.clear();
     lcd.setCursor(0, 1);
-    lcd.print(F("cheese"));
+    lcd.print(F("Ts="));
+    lcd.setCursor(3, 1);
+    lcd.print(cheese[0]);
+    lcd.setCursor(8, 1);
+    lcd.print(F("mode 1"));
     break;
 
   case 2:
     // step = 7;
     lcd.clear();
     lcd.setCursor(0, 1);
-    lcd.print(F("pasteriza"));
-    lcd.setCursor(11, 1);
+    lcd.print(F("Ts="));
+    lcd.setCursor(3, 1);
     lcd.print(Temp_paster);
+    lcd.setCursor(8, 1);
+    lcd.print(F("mode 2"));
     break;
   }
 }
@@ -446,17 +480,80 @@ void timerMin()
 {
 
   i++;
-  lcd.setCursor(14, 0);
-  lcd.print(" ");
-  lcd.setCursor(15, 0);
-  lcd.print(time_display);
+  //lcd.setCursor(14, 1);
+  //lcd.print(" ");
+
   if (i == 60)
   {
     time_display--;
-    // lcd.setCursor(14, 0);
-    //lcd.print(" ");
+    if (time_display < 10)
+    {
+      lcd.setCursor(14, 1);
+      lcd.print(F(" "));
+      lcd.setCursor(15, 1);
+      lcd.print(time_display);
+    }
+    else
+    {
+      lcd.setCursor(14, 1);
+      lcd.print(time_display);
+    }
     // lcd.setCursor(15, 0);
     // lcd.print(time_display);
     i = 0;
+  }
+}
+
+void change_setpoint(int8_t *temperatura, int8_t *time)
+{
+
+  if (enc.isPress())
+  {
+    cursor = !cursor;
+    //lcd.cursor_on();
+  }
+
+  if (cursor && *temperatura != -127)
+  {
+
+    if (enc.isRight())
+    {
+      *temperatura += 1;
+      lcd.setCursor(3, 1);
+      lcd.print(F("  "));
+      lcd.setCursor(3, 1);
+      lcd.print(*temperatura);
+    }
+
+    if (enc.isLeft())
+    {
+      *temperatura -= 1;
+      lcd.setCursor(3, 1);
+      lcd.print(F("  "));
+      lcd.setCursor(3, 1);
+      lcd.print(*temperatura);
+    }
+  }
+  if (!cursor && *time != -127)
+  {
+
+    if (enc.isRight())
+    {
+      Serial.println(*time);
+      *time += 1;
+      lcd.setCursor(9, 1);
+      lcd.print(F("  "));
+      lcd.setCursor(9, 1);
+      lcd.print(*time);
+    }
+
+    if (enc.isLeft())
+    {
+      *time -= 1;
+      lcd.setCursor(9, 1);
+      lcd.print(F("  "));
+      lcd.setCursor(9, 1);
+      lcd.print(*time);
+    }
   }
 }
