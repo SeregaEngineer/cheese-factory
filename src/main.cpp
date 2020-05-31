@@ -10,12 +10,13 @@ long time_click = 0;
 float temp;
 uint8_t gister = 0.3; //гистеререзис
 uint8_t step = 0;
-const uint8_t heater = 13; // Пин подключение нагревателя
-const uint8_t btn_on = 2;  //Пин подключения кнопки
-const uint8_t buz = 3;     //Пин для подключения пищалки
-const uint8_t motor = 4;   //Пин для подключения пищалки
-const uint8_t valve = 7;   //Пин для подклчючения клапана
-uint8_t Temp_paster = 27;  // Уставка пастеризации
+const uint8_t heater = 13;       // Пин подключение нагревателя
+const uint8_t btn_on = 2;        //Пин подключения кнопки
+const uint8_t buz = 3;           //Пин для подключения пищалки
+const uint8_t motor = 4;         //Пин для подключения пищалки
+const uint8_t valve = 7;         //Пин для подклчючения клапана
+const uint8_t led_continium = 6; //Лед для кнопки светодиода
+int8_t Temp_paster = 27;         // Уставка пастеризации
 uint8_t setTemp2 = 37;
 uint32_t timeMin, timeSec;
 //uint16_t setTimeMin;
@@ -48,6 +49,8 @@ void setup()
   pinMode(btn_on, INPUT_PULLUP);
   pinMode(buz, OUTPUT);
   pinMode(motor, OUTPUT);
+  pinMode(valve, OUTPUT);
+  pinMode(led_continium, OUTPUT);
   Serial.begin(9600);
   lcd.clear();
   lcd.setCursor(6, 1);
@@ -157,6 +160,7 @@ bool btContinue(int8_t time_process)
 {
   if (!digitalRead(btn_on))
   {
+    digitalWrite(led_continium, LOW);
     run = true;
     //start_time = getTimeInMin();
     start_time = now();
@@ -180,6 +184,7 @@ bool btContinue(int8_t time_process)
 //выход из шага
 void exitInStep(int8_t *temperatura, int8_t *time)
 {
+  digitalWrite(led_continium, HIGH);
   buzzer();
   var = false;
   varHeatTo = true;
@@ -299,7 +304,7 @@ void modeCheese()
         timerMin();
         if (now() - start_time >= cheese[3] * 60)
         {
-          exitInStep(&cheese[2], &cheese[1]);
+          exitInStep(&nope, &cheese[4]);
           Serial.println(F("Step 3 done"));
         }
         previousMillis11 = currentTime;
@@ -310,10 +315,9 @@ void modeCheese()
   case 4: //Жднем нажатие кнопки для включение сервы на 30 секунд
     if (!var)
     {
-      lcd.setCursor(0, 1);
-      lcd.print(F("Check sg"));
+      change_setpoint(&nope, &cheese[4]);
     }
-    btContinue(cheese[4]);
+    btContinue(-100);
 
     if (var)
     {
@@ -324,7 +328,7 @@ void modeCheese()
         {
           //timerMin();
           controlMotor(false);
-          exitInStep(&cheese[2], &cheese[1]);
+          exitInStep(&cheese[6], &cheese[5]);
           Serial.println(F("Step 4 done"));
         }
         previousMillis11 = currentTime;
@@ -336,8 +340,7 @@ void modeCheese()
     //вывкести сообщение о смени насадки
     if (!var)
     {
-      lcd.setCursor(0, 1);
-      lcd.print(F("сhange nozzle"));
+      change_setpoint(&cheese[6], &cheese[5]);
     }
 
     btContinue(cheese[5]);
@@ -354,7 +357,7 @@ void modeCheese()
         {
           controlMotor(false);
           buzzer(); //через 15 минут вырбуаем движок и пищим бузером
-          exitInStep(&cheese[2], &cheese[1]);
+          exitInStep(&cheese[7], &cheese[8]);
           Serial.println(F("Step 5 done"));
         }
         previousMillis11 = currentTime;
@@ -366,8 +369,7 @@ void modeCheese()
   case 6:
     if (!var)
     {
-      lcd.setCursor(0, 1);
-      lcd.print(F("need help"));
+      change_setpoint(&cheese[7], &cheese[8]);
     }
 
     btContinue(cheese[8]);
@@ -380,7 +382,7 @@ void modeCheese()
         timerMin();
         if (now() - start_time >= cheese[8] * 60)
         {
-          exitInStep(&cheese[2], &cheese[1]);
+          exitInStep(&nope, &nope);
           step = 1;
           menu = 0;
           menuSwipe(&menu);
@@ -405,8 +407,11 @@ void modeStop()
 //Режим пастеризации
 void modePaster()
 {
-
-  btContinue(25); //////!!!!!!!!!!!!!!
+  if (!var)
+  {
+    change_setpoint(&Temp_paster, &nope);
+  }
+  btContinue(-100); //////!!!!!!!!!!!!!!
   if (var)
   {
 
@@ -416,8 +421,6 @@ void modePaster()
     {
       if (currentTime - previousMillis11 > 1000) // текущие - предыдущие
       {
-        timerMin();
-        //каждую сек обеновляем диспей и пишем скольок времени осталось
         if (now() - start_time >= 25)
         { // время для отладки везде порядка минуты
           digitalWrite(valve, HIGH);
@@ -428,7 +431,7 @@ void modePaster()
             var = false;
             varHeatTo = true;
             lcd.clear();
-            lcd.setCursor(0, 1); // по функционалу но вроде безопаснее
+            lcd.setCursor(6, 1); // по функционалу но вроде безопаснее
             lcd.print(F("stop"));
             menu = 0;
             buzzer();
@@ -507,7 +510,7 @@ void timerMin()
 void change_setpoint(int8_t *temperatura, int8_t *time)
 {
 
-  if (enc.isPress())
+  if (enc.isPress() || *temperatura == -127)
   {
     cursor = !cursor;
     //lcd.cursor_on();
