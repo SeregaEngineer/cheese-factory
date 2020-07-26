@@ -6,6 +6,11 @@
 #include "heater.h"
 #include "GyverEncoder.h"
 #include <LiquidCrystal_I2C.h>
+#include "OneWire.h"
+
+
+
+
 
 
 void menuSwipe(int8_t *menu);  // Переход между выбором режима пастеризация/сыр/стоп

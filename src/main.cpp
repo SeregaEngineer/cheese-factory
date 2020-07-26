@@ -7,15 +7,15 @@ long previousMillis1 = 0;
 long previousMillis11 = 0;
 long previousMillis_read = 0;
 long time_click = 0;
-float temp;
+float temp, tempWather;
 uint8_t gister = 0.3; //гистеререзис
 uint8_t step = 0;
-const uint8_t heater = 13;       // Пин подключение нагревателя
-const uint8_t btn_on = 2;        //Пин подключения кнопки
+const uint8_t heater = 8;        // Пин подключение нагревателя
+const uint8_t btn_on = 14;       //Пин подключения кнопки
 const uint8_t buz = 3;           //Пин для подключения пищалки
-const uint8_t motor = 4;         //Пин для подключения пищалки
-const uint8_t valve = 7;         //Пин для подклчючения клапана
-const uint8_t led_continium = 6; //Лед для кнопки светодиода
+const uint8_t motor = 7;         //Пин для подключения пищалки
+const uint8_t valve = 6;         //Пин для подклчючения клапана
+const uint8_t led_continium = 5; //Лед для кнопки светодиода
 int8_t Temp_paster = 27;         // Уставка пастеризации
 uint8_t setTemp2 = 37;
 uint32_t timeMin, timeSec;
@@ -27,15 +27,16 @@ int32_t start_time;     // переменны для записи начанал
 bool var = false;       // Для  для включения сервы после нажатия на кнопку
 bool varHeatTo = false; //перемннная для функции нагреть до
 int8_t menu = 0;        // переменная для работы меню
-Encoder enc(10, 9, 8);
+Encoder enc(12, 11, 10);
 LiquidCrystal_I2C lcd(0x3F, 16, 2);
 Heater heat(heater);
 int8_t cheese[9];         // массив с настройками рецепт
 int8_t brand_cheese = 10; //Переменная для выбора
 uint8_t i = 0;
-
+//bool flag = true;
 int8_t nope = -127;
 bool cursor = false;
+float temparr[2];
 
 void setup()
 {
@@ -73,6 +74,7 @@ void loop()
 
   if (enc.isRightH() && !run) // Добавить условия со step что если тема мутится не надо менять рецпты на ходу
   {
+    Serial.println(F("Right"));
     menu++;
     if (menu > 2)
     {
@@ -83,6 +85,7 @@ void loop()
 
   if (enc.isLeftH() && !run)
   {
+    Serial.println(F("Left"));
     menu--;
     if (menu < 0)
     {
@@ -107,17 +110,21 @@ void loop()
 
   if (currentTime - previousMillis > 750) // текущие - предыдущие
   {
-    temp = readTemp();
-    // Serial.println(temp);
-    lcd.setCursor(0, 0);
-    lcd.print(F("Tm="));
-    lcd.setCursor(3, 0);
-    lcd.print(temp, 1);
-    lcd.setCursor(8, 0);
-    lcd.print(F("Tw="));
-    lcd.setCursor(11, 0);
-    lcd.print(temp + 10, 1);
-    previousMillis = currentTime;
+    
+      readTemp(temparr);
+      temp = temparr[0];
+      tempWather = temparr[1];
+      lcd.setCursor(0, 0);
+      lcd.print(F("Tm="));
+      lcd.setCursor(3, 0);
+      lcd.print(temp, 1);
+      lcd.setCursor(8, 0);
+      lcd.print(F("Tw="));
+      lcd.setCursor(11, 0);
+      lcd.print(tempWather, 1);
+      previousMillis = currentTime;
+      
+    
   }
 
   switch (menu)
